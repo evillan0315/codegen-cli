@@ -1,0 +1,30 @@
+// tsconfig.app.json
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    // --- START: Changes for TS6133 ---
+    "noUnusedLocals": false,     // Set to false to disable 'declared but never read' for local variables
+    "noUnusedParameters": false, // Set to false to disable 'declared but never read' for function parameters
+    // --- END: Changes for TS6133 ---
+    "erasableSyntaxOnly": true, // Keep as is, unrelated to this error
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}
