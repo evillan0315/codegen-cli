@@ -1,4 +1,4 @@
-# AI Editor
+# CodeGen Cli
 
 An AI-powered code editor designed to assist developers with intelligent code generation, refactoring, and general code manipulation directly within their project structure.
 
@@ -40,8 +40,8 @@ Before you begin, ensure you have the following installed:
 1.  **Clone the repository:**
 
     ```bash
-    git clone https://github.com/your-username/ai-editor.git
-    cd ai-editor
+    git clone https://github.com/evillan0315/codegen-cli.git
+    cd codegen-cli
     ```
 
 2.  **Install dependencies for the backend (root directory):**
