@@ -31,7 +31,7 @@ const program = new Command();
 program
   .name('ai-editor')
   .description('An AI-powered tool for editing and updating code files.')
-  .version('0.1.0');
+  .version('0.1.1');
 
 
 async function getAuthenticatedBackendApi(): Promise<BackendApi> {

@@ -14,10 +14,7 @@ If you need to add a new dependency, mention it in the summary or thought proces
 
 export const ADDITIONAL_INSTRUCTION_EXPECTED_OUTPUT = `
 Your response must be a JSON object with two top-level keys: 'summary' (string) and 'changes' (array of objects).
-Escape all newlines as \\\\n and escape quotes as \\\\".
-Escape backticks inside template literals (use \\\\\` instead of raw backticks).
-Remove trailing commas in arrays/objects where JSON would reject them.
-Keep TypeScript code or other language code intact inside the newContent string.
+Keep TypeScript code intact inside the newContent string.
 The 'changes' array should contain objects, each representing a file operation:
 {
   "summary": "Short explanation for this specific request",
@@ -26,7 +23,7 @@ The 'changes' array should contain objects, each representing a file operation:
     {
       "filePath": "path/to/file.tsx", // Absolute path (use path.join(projectRoot, relativePath) to construct)
       "action": "add" | "modify" | "delete",
-      "newContent"?: "...", // Required for 'add'/'modify', omit for 'delete'. For 'add' or 'modify', include the full new content of the file, with ALL necessary JSON escaping (e.g., \\\\n for newlines, \\\\" for quotes). Escape backticks inside template literals using \\\\\`.
+      "newContent"?: "...", // Required for 'add'/'modify', omit for 'delete'. For 'add' or 'modify', include the full new content of the file, with ALL necessary JSON escaping".
       "reason"?: "..." // Optional, short explanation for this specific file change
     }
     // More changes...

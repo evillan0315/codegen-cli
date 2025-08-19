@@ -1,1 +1,144 @@
-# AI Editor\n\nAn AI-powered tool for editing and updating code files, designed as a monorepo containing both a CLI tool and a React-based frontend application.\n\n## Monorepo Structure\n\nThis project is organized as a monorepo:\n\n- **`/` (Root):** Contains shared configurations, overall documentation, and the core AI-editing CLI tool.\n- **`apps/ai-editor-front/`:** Houses the React/TypeScript/Tailwind CSS frontend application.\n- **`docs/`:** Contains detailed documentation and setup guides.\n\n## Core Architecture\n\nThe AI Editor operates on a client-server model:\n\n- **AI Editor CLI / Frontend Application (Clients):** These are the user-facing tools. They handle user interaction, local Git operations (CLI only), display diffs, and manage authentication. They _do not_ directly interact with LLMs or perform file system modifications on the target project.\n- **AI Editor Backend Service (Server):** This separate service (not part of this repository, but required) handles all resource-intensive and sensitive operations. It is responsible for:\n - Authenticating users via OAuth.\n - Scanning project files and reading their content.\n - Orchestrating calls to large language models (LLMs) like Google Gemini.\n - Applying file system changes (add, modify, delete) to the target project directory.\n - Serving as the central API for both the CLI and the Frontend.\n\n## Features (CLI Tool)\n\nThe CLI tool focuses on automating code modification workflows through a command-line interface:\n\n- Authenticates users via OAuth (Google, GitHub) for secure backend interaction.\n- **Delegates project scanning** to the backend service, which collects file paths and contents.\n- **Sends user prompts and relevant file context** to the backend for LLM processing.\n- **Delegates LLM calls** (e.g., Google Gemini) to the backend service, which generates proposed changes in a structured JSON format.\n- **Generates human-readable diffs locally** between original and proposed content for user review.\n- **Delegates application of file changes** (add, modify, delete) to the backend service.\n- **Integrates with Git locally** for automated branch creation and staging changes.\n\n## Getting Started\n\n### Prerequisites\n\n- Node.js (version >= 18)\n- npm or yarn\n- **AI Editor Backend service running and accessible.** This project (CLI/Frontend) acts as a client to a separate backend application. Refer to the backend's `README.md` (or relevant documentation) for setup instructions.\n- A Google Gemini API key configured on your **backend service**. See [Setting up Google Gemini API Key](docs/google-gemini-setup.md) for detailed instructions.\n\n### Installation\n\nNavigate to the root of this project and install dependencies:\n\n`bash\nnpm install\n# or yarn install\n`\n\n### Usage\n\nAll CLI commands are executed from the project root. You can use `ts-node src/cli.ts <command>` or, for convenience, use `npm start <command>` (which is configured in `package.json` to run `ts-node src/cli.ts`).\n\n#### AI Editor CLI Tool\n\n1. **Login to the backend service (required for AI and file operations):**\n\n `bash\nnpm start login google   # Or 'github'\n    `\n\n2. **Scan files or directories (delegated to backend):**\n\n `bash\nnpm start scan [paths...]\n    `\n\n Examples:\n\n `bash\nnpm start scan .                                 # Scans the current directory via backend\nnpm start scan apps/ai-editor-front/src/components # Scans a specific subdirectory via backend\nnpm start scan . --verbose                      # Scan with verbose output from backend\nnpm start scan src --show-content               # Show content snippets of scanned files\nnpm start scan . --verbose --show-content       # Combine verbose and show-content\n    `\n\n3. **Generate code based on a prompt (delegated to backend):**\n\n `bash\nnpm start generate 'Your prompt here'\n    `\n\n Examples:\n\n `bash\nnpm start generate 'Add a user profile component'                    # Basic generation\nnpm start generate 'Implement a dark mode toggle' --scan-dirs apps/ai-editor-front/src/ui # Target specific path for context\nnpm start generate 'Add user authentication flow' --yes             # Auto-confirm all changes (use with caution!)\nnpm start generate 'Refactor old utility functions' --no-git        # Skip Git operations\nnpm start generate 'Create a new Dashboard component' --branch feature/dashboard-v2 # Specify a new branch\n    `\n\n##### CLI Options\n\n- `-p, --path <path>`: (for `generate` command) Specify the project root directory (default: current working directory). This is where local Git operations will be based, and paths sent to the backend for scanning (via `--scan-dirs` or `--scan-files`) will be relative to this root.\n- `--scan-dirs <dirs...>`: (for `generate` command) Space-separated list of directories to scan within the project root (e.g., 'src apps/ai-editor-front/src'). These paths are sent to the backend for context gathering.\n- `--scan-files <files...>`: (for `generate` command) Space-separated list of individual file paths to scan within the project root (e.g., 'src/App.tsx apps/ai-editor-front/src/main.tsx'). These paths are sent to the backend for context gathering.\n- `-y, --yes`: (for `generate` command) Automatically confirm all proposed changes without prompting (USE WITH CAUTION!).\n- `--no-git`: (for `generate` command) Skip all Git operations (branching, staging).\n- `--branch <name>`: (for `generate` command) Specify a branch name to create/checkout. If not provided, a default is suggested.\n- `-v, --verbose`: (for `scan` command) Output detailed information during scan from the backend.\n- `-s, --show-content`: (for `scan` command) Show a snippet of file content for sample files received from the backend.\n\n4. **Check current login status:**\n\n `bash\nnpm start whoami\n    `\n\n5. **Logout from the backend service:**\n\n `bash\nnpm start logout\n    `\n\n#### AI Editor Frontend Application\n\nTo run the interactive web application, which also communicates with the same backend service:\n\n`bash\ncd apps/ai-editor-front\nnpm run dev # or yarn dev\n`\n\nFor more details on the frontend application, refer to its dedicated README: [apps/ai-editor-front/README.md](apps/ai-editor-front/README.md)\n\n## Development\n\n### Running the project (CLI)\n\n`bash\nnpm start # Equivalent to ts-node src/cli.ts\n`\n\n### Building the project (CLI)\n\n`bash\nnpm run build\n`\n\n## File Structure (Root)\n\n`\n.\n├── CONTRIBUTING.md\n├── README.md\n├── apps\n│   └── ai-editor-front\n│       └── README.md # Frontend-specific README\n├── docs\n│   ├── developer-guide.md\n│   └── google-gemini-setup.md\n├── eslint.config.ts\n├── package.json\n├── src # Core CLI Tool Source\n│   ├── auth              # Authentication logic (OAuth, token management)\n│   ├── backend-api       # Client for backend API communication\n│   ├── file-operations   # Local diff generation, delegates apply to backend\n│   ├── git-operations    # Local Git interactions\n│   ├── cli.ts            # Main CLI entry point (renamed from index.ts in previous step)\n│   ├── llm               # LLM input/output types (actual calls via backend-api)\n│   └── types.ts          # Shared TypeScript types\n└── tsconfig.json\n`\n\nFor a more detailed breakdown of the CLI tool's architecture, see the [Developer Guide](docs/developer-guide.md).\n\n## Dependencies\n\n(See `package.json` for full list)\n\n- `axios`: For making HTTP requests to the backend API.\n- `chalk`: For colorful console output in diffs.\n- `commander`: For building the command-line interface.\n- `diff`: For generating text diffs locally.\n- `dotenv`: For loading environment variables (e.g., `BACKEND_URL`).\n- `inquirer`: For interactive command-line prompts.\n- `open`: For opening URLs in the default browser during OAuth.\n- `simple-git`: For local Git operations.\n\n## Contributing\n\nWe welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.\n\n## License\n\nThis project is licensed under the ISC License. See [LICENSE](LICENSE) for details.\n
+# AI Editor
+
+An AI-powered code editor designed to assist developers with intelligent code generation, refactoring, and general code manipulation directly within their project structure.
+
+## Table of Contents
+
+- [Features](#features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Technologies Used](#technologies-used)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Features
+
+- **AI-Powered Code Assistance**: Leverage large language models for code generation, refactoring, and debugging suggestions.
+- **File Operations**: Seamless integration with local file systems for reading and writing code.
+- **Git Integration**: Basic Git operations (e.g., diff generation) to track changes.
+- **User Interface**: A responsive web interface built with React to interact with the AI editor.
+- **Authentication**: Secure user authentication for accessing the editor functionalities.
+
+## Getting Started
+
+To get a copy of the project up and running on your local machine for development and testing purposes, follow these steps.
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- Node.js (LTS version recommended)
+- npm or yarn
+- Git
+
+### Installation
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/your-username/ai-editor.git
+    cd ai-editor
+    ```
+
+2.  **Install dependencies for the backend (root directory):**
+
+    ```bash
+    npm install
+    # or yarn install
+    ```
+
+3.  **Install dependencies for the frontend (`apps/ai-editor-front`):**
+    ```bash
+    cd apps/ai-editor-front
+    npm install
+    # or yarn install
+    cd ../..
+    ```
+
+### Configuration
+
+Create a `.env` file in the project root and in `apps/ai-editor-front` based on the `.env.example` (if present) or refer to `docs/google-gemini-setup.md` for AI API key configuration.
+
+Example `.env` (root):
+
+```env
+PORT=3000
+# AI_API_KEY=YOUR_GEMINI_API_KEY
+# AI_MODEL=gemini-pro
+```
+
+Example `.env` (`apps/ai-editor-front`):
+
+```env
+# VITE_API_BASE_URL=http://localhost:3000/api
+```
+
+## Usage
+
+1.  **Start the backend server:**
+    From the project root:
+
+    ```bash
+    npm start
+    # or node src/cli.ts start
+    ```
+
+    The backend server will typically run on `http://localhost:3000` (or your configured `PORT`).
+
+2.  **Start the frontend development server:**
+    From the `apps/ai-editor-front` directory:
+
+    ```bash
+    cd apps/ai-editor-front
+    npm run dev
+    ```
+
+    The frontend application will typically open in your browser at `http://localhost:5173` (or Vite's default).
+
+3.  **Access the AI Editor:**
+    Navigate to the frontend URL in your web browser. You will be able to log in (if authentication is set up) and use the AI editing features.
+
+## Project Structure
+
+```
+ai-editor/
+├── apps/
+│   └── ai-editor-front/  # Frontend React application
+│       ├── public/
+│       ├── src/
+│       └── ...
+├── src/                  # Backend Node.js application
+│   ├── auth/
+│   ├── file-operations/
+│   ├── git-operations/
+│   ├── llm/
+│   ├── scanner.ts
+│   ├── cli.ts
+│   └── ...
+├── docs/                 # Documentation
+├── .env                  # Environment variables (backend)
+├── .env.example
+├── package.json
+├── README.md
+└── ...
+```
+
+## Technologies Used
+
+- **Backend**: Node.js, Express (or similar framework for API)
+- **Frontend**: React, TypeScript, Tailwind CSS, Vite
+- **AI**: Google Gemini API
+- **State Management (Frontend)**: Nanostores (or similar lightweight store)
+- **Version Control**: Git
+
+## Contributing
+
+Please read `CONTRIBUTING.md` for details on our code of conduct, and the process for submitting pull requests to us.
+
+## License
+
+This project is licensed under the MIT License - see the `LICENSE` file for details.
