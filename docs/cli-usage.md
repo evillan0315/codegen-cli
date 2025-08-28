@@ -35,13 +35,13 @@ Before using the CLI, ensure you have:
 
 The CLI relies on an environment variable, `BACKEND_URL`, to know where to find the AI Editor backend service. It is recommended to set this in a `.env` file in the root of your CLI project (or the directory from where you run `aicli`).
 
-**Example `.env` file:**
+**Example `.env` file (at the CLI project root):**
 
 ```env
-BACKEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:5000
 ```
 
-Replace `http://localhost:3000` with the actual URL of your running backend service if it's different.
+Replace `http://localhost:5000` with the actual URL of your running backend service if it's different.
 
 ## Authentication Commands
 
@@ -49,7 +49,7 @@ The AI Editor CLI uses OAuth 2.0 for authentication. You must log in before you 
 
 ### `aicli login <provider>`
 
-Initiates the OAuth login flow to authenticate the CLI with the backend service.
+Initiates the OAuth login flow to authenticate the CLI with the backend service. This command will open a browser window for you to complete the authentication process.
 
 **Usage:**
 
@@ -67,11 +67,11 @@ aicli login <provider> [options]
 
 **How it works:**
 
-1. The CLI starts a temporary local web server on the specified port.
-2. It opens your default web browser to the backend's OAuth initiation URL, including the CLI's callback port.
-3. You will be prompted to log in and grant access via your chosen provider (Google/GitHub).
-4. Upon successful authentication, the backend redirects back to the CLI's local server with an access token.
-5. The CLI captures and securely stores this token in your user's home directory (`~/.ai-editor-config.json`). All subsequent requests to the backend will use this token for authorization.
+1.  The CLI starts a temporary local web server on the specified port.
+2.  It opens your default web browser to the backend's OAuth initiation URL, including the CLI's callback port.
+3.  You will be prompted to log in and grant access via your chosen provider (Google/GitHub).
+4.  Upon successful authentication, the backend redirects back to the CLI's local server with an access token.
+5.  The CLI captures and securely stores this token in your user's home directory (`~/.ai-editor-config.json`). All subsequent requests to the backend will use this token for authorization.
 
 **Examples:**
 
@@ -79,13 +79,16 @@ aicli login <provider> [options]
 # Log in using your Google account
 aicli login google
 
-# Log in using your GitHub account, listening on port 8081
+# Log in using your GitHub account, listening on port 8081 if 8080 is busy
 aicli login github --port 8081
+
+# Attempt login with an invalid provider (will show an error)
+aicli login facebook
 ```
 
 ### `aicli logout`
 
-Clears the stored OAuth authentication token, effectively logging you out from the CLI.
+Clears the stored OAuth authentication token, effectively logging you out from the CLI. This removes your local session data.
 
 **Usage:**
 
@@ -96,12 +99,16 @@ aicli logout
 **Examples:**
 
 ```bash
+# Log out the current user
+aicli logout
+
+# Try logging out when not logged in (will show a message but no error)
 aicli logout
 ```
 
 ### `aicli whoami`
 
-Displays information about the currently authenticated user, if a token is stored.
+Displays information about the currently authenticated user, if a token is stored. This is useful for verifying your login status and user details.
 
 **Usage:**
 
@@ -123,7 +130,7 @@ aicli whoami
 #   Access Token (first 10 chars): <token-snippet>...
 
 # Expected output if not logged in:
-# Not currently logged in. Use `ai-editor login <provider>` to log in.
+# Not currently logged in. Use `aicli login <provider>` to log in.
 ```
 
 ## Project Interaction Commands
@@ -132,7 +139,7 @@ These commands interact with your local project files and the AI Editor backend 
 
 ### `aicli scan [paths...]`
 
-Scans one or more specified files or directories within your project. The actual file system traversal and content reading are delegated to the backend service.
+Scans one or more specified files or directories within your project. The actual file system traversal and content reading are delegated to the backend service, which then returns the relevant file data.
 
 **Usage:**
 
@@ -146,14 +153,14 @@ aicli scan [paths...] [options]
 
 **Options:**
 
-- `-v, --verbose`: Output detailed information during the scan, including each file being processed.
-- `-s, --show-content`: For the first few sample files, show a snippet of their content in the console output.
+- `-v, --verbose`: Output detailed information during the scan, including each file being processed by the backend.
+- `-s, --show-content`: For the first few sample files found, show a snippet of their content directly in the console output.
 
 **How it works:**
 
-1. The CLI sends the specified `scanPaths` and `projectRoot` (current directory) to the backend's `/api/file/scan` endpoint.
-2. The backend performs the recursive file traversal and reads content.
-3. The backend returns a list of `ScannedFile` objects, which the CLI then summarizes.
+1.  The CLI sends the specified `scanPaths` (absolute paths) and `projectRoot` (absolute path of current working directory) to the backend's `/api/file/scan` endpoint.
+2.  The backend performs the recursive file traversal and reads content, respecting `.gitignore` files.
+3.  The backend returns a list of `ScannedFile` objects, which the CLI then processes and displays a summary of.
 
 **Examples:**
 
@@ -167,13 +174,16 @@ aicli scan src tests/unit
 # Scan a single file ('src/index.ts') and show its content snippet
 aicli scan src/index.ts --show-content
 
-# Scan the entire project verbosely
+# Scan the entire project verbosely, showing which files are processed
 aicli scan . --verbose
+
+# Scan multiple specific files
+aicli scan src/utils/helpers.ts src/components/Button.tsx --show-content
 ```
 
 ### `aicli generate <prompt>`
 
-This is the core command for AI-powered code generation or modification. It takes a natural language prompt, sends it to the backend's LLM, and allows you to review and apply the proposed changes.
+This is the core command for AI-powered code generation or modification. It takes a natural language prompt, sends it to the backend's LLM, and allows you to review and apply the proposed changes interactively.
 
 **Usage:**
 
@@ -183,68 +193,74 @@ aicli generate <prompt> [options]
 
 **Arguments:**
 
-- `<prompt>`: Your natural language instruction for the AI (e.g., "Refactor this component," "Add a new feature"). This should be enclosed in quotes if it contains spaces.
+- `<prompt>`: Your natural language instruction for the AI (e.g., "Refactor this component," "Add a new feature"). This should be enclosed in quotes if it contains spaces to be treated as a single argument.
 
 **Options:**
 
 - `-p, --path <path>`: Specify the project root directory. All file paths for scanning and Git operations will be relative to this path. Defaults to the current working directory (`.`).
-- `--scan-dirs <dirs...>`: Space-separated list of directories to scan within the project root. If not provided, and `--scan-files` is also not provided, the entire project root (`.`) will be scanned. (e.g., `'src tests'`)
-- `--scan-files <files...>`: Space-separated list of individual file paths to scan within the project root. (e.g., `'src/App.tsx tests/my-test.ts'`)
+- `--scan-dirs <dirs...>`: Space-separated list of directories to scan within the project root. If neither `--scan-dirs` nor `--scan-files` is provided, the entire project root (`.`) will be scanned by default. (e.g., `--scan-dirs 'src tests'`) `Note: Quote arguments with spaces.`
+- `--scan-files <files...>`: Space-separated list of individual file paths to scan within the project root. (e.g., `--scan-files 'src/App.tsx tests/my-test.ts'`) `Note: Quote arguments with spaces.`
 - `-y, --yes`: **Automatically confirm all proposed changes without prompting.** Use with extreme caution, as this will apply all changes suggested by the AI without manual review. Defaults to `false`.
-- `--no-git`: Skip all Git operations (creating a new branch, staging files). Defaults to `false`.
-- `--branch <name>`: Specify a branch name to create and checkout before applying changes. If not provided and Git operations are enabled, a default name will be suggested based on the prompt.
+- `--no-git`: Skip all Git operations (creating a new branch, staging files). Defaults to `false`. This means changes will be applied directly to your current branch.
+- `--branch <name>`: Specify a custom branch name to create and checkout before applying changes. If not provided and Git operations are enabled, a default name will be suggested based on the prompt (e.g., `feature/your-prompt-slug`).
 
 **How it works:**
 
 1.  **Git Pre-check (if not `--no-git`):**
-    - Checks if the current directory is a Git repository.
+    - Checks if the specified project root is a Git repository.
     - If so, it prompts you to confirm Git operations (creating a new branch). If confirmed, it will create and checkout a new branch (either custom or AI-suggested).
 2.  **Project Scanning:**
-    - Uses the `aicli scan` functionality to gather content from the specified `scan-dirs` or `scan-files` (or the entire project root).
+    - The CLI delegates to the backend to gather content from the specified `scan-dirs` or `scan-files` (or the entire project root).
 3.  **LLM Call:**
     - Prepares an `LLMInput` object containing your prompt, scanned file content, and project structure information.
     - Sends this `LLMInput` to the backend's `/api/llm/generate-llm` endpoint.
-    - The backend processes the request with the LLM and returns `LLMOutput`, which includes a `summary`, `thoughtProcess`, and a list of `ProposedFileChange` objects.
+    - The backend processes the request with its configured LLM (e.g., Google Gemini) and returns `LLMOutput`, which includes a `summary`, `thoughtProcess`, and a list of `ProposedFileChange` objects.
 4.  **Review Proposed Changes:**
     - The CLI iterates through each `ProposedFileChange` from the LLM.
-    - For `add` actions, it shows a preview of the new content.
+    - For `add` actions, it shows a preview of the new file's content.
     - For `modify` actions, it generates and displays a colored unified diff between the original and proposed content.
     - For `delete` actions, it indicates the file to be removed.
     - For each change, unless `--yes` is used, you will be prompted to `Yes`, `No`, `Apply All`, or `Abort`.
 5.  **Apply Confirmed Changes:**
-    - For each confirmed change, the CLI calls the backend's `/api/file/create`, `/api/file/write`, or `/api/file/delete` endpoints.
+    - For each confirmed change, the CLI calls the backend's file service endpoints (`/api/file/create`, `/api/file/write`, or `/api/file/delete`).
     - The backend then performs the actual file system operations.
 6.  **Git Post-operations (if not `--no-git`):**
-    - After applying changes, the CLI stages all modified/added files in the current Git branch.
-    - It then provides instructions for committing, reviewing, and testing your changes.
+    - After applying changes, the CLI stages all modified/added/deleted files in the current Git branch.
+    - It then provides clear instructions for reviewing, committing, and testing your changes.
 
 **Examples:**
 
 ```bash
-# Implement a new feature, scanning only the 'src' directory
-aicli generate "Implement user authentication using JWT in the 'auth' module. Create new files if necessary." --scan-dirs src/auth
+# Implement a new feature, scanning only the 'src/auth' directory for context
+aicli generate "Implement user authentication using JWT in the 'auth' module. Create new files if necessary, following NestJS best practices." --scan-dirs src/auth
 
 # Refactor an existing component, specifying a custom project root and branch
 aicli generate "Refactor the 'Dashboard' component in 'frontend/src/components/Dashboard.tsx' to use a new state management pattern (e.g., nanostores)." --path ./apps/ai-editor-front --scan-files apps/ai-editor-front/src/components/Dashboard.tsx --branch refactor/dashboard-nanostores
 
 # Automatically fix all linting errors in the 'utils' directory (use with extreme caution)
-aicli generate "Fix all linting issues in the 'utils' folder according to the project's eslint rules." --scan-dirs src/utils --yes
+aicli generate "Fix all linting issues in the 'utils' folder according to the project's eslint rules, ensuring all files conform to prettier standards." --scan-dirs src/utils --yes
 
 # Create a new service based on an existing interface, skipping Git operations
-aicli generate "Create a new 'UserService' in 'src/services/' that implements the 'IUserRepo' interface from 'src/types.ts'." --scan-files src/types.ts --no-git
+aicli generate "Create a new 'UserService' in 'src/services/' that implements the 'IUserRepo' interface from 'src/types.ts', including basic CRUD methods." --scan-files src/types.ts --no-git
+
+# Add documentation comments to all public functions in a specific file
+aicli generate "Add JSDoc-style documentation comments to all exported functions and classes in 'src/api/userApi.ts'." --scan-files src/api/userApi.ts
+
+# Perform a bulk refactor across multiple files, confirming interactively
+aicli generate "Rename all instances of 'IUser' interface to 'UserInterface' in 'src/models/' and 'src/services/', updating imports as needed." --scan-dirs 'src/models src/services'
 ```
 
 ## Environment Variables
 
-- `BACKEND_URL`: **(Required)** The base URL of your AI Editor backend service. Default: `http://localhost:3000`. Ensure this is correctly set in your `.env` file.
+- `BACKEND_URL`: **(Required)** The base URL of your AI Editor backend service. Default: `http://localhost:5000`. Ensure this is correctly set in your `.env` file.
 
 ## Troubleshooting
 
-- **`Error: You are not logged in.`**: Run `aicli login <provider>` to authenticate.
-- **`Backend Error (401): Unauthorized`**: Your authentication token might be expired or invalid. Try `aicli logout` followed by `aicli login <provider>`.
+- **`Error: You are not logged in.`**: This means no authentication token is found. Run `aicli login <provider>` to authenticate.
+- **`Backend Error (401): Unauthorized`**: Your authentication token might be expired or invalid. Try `aicli logout` followed by `aicli login <provider>` to refresh your token.
 - **`Error: Port 8080 is already in use.`**: When logging in, use the `--port` option to specify an alternative local port, e.g., `aicli login google --port 8081`.
-- **`Backend Error (500): ...` or connection issues**: Ensure your AI Editor backend service is running and accessible at the `BACKEND_URL` configured in your `.env` file.
-- **No changes proposed by LLM**: The prompt might not be clear enough, or the LLM might determine no changes are necessary. Try refining your prompt or checking the backend logs for LLM response details.
-- **Files not found during scan**: Verify that the `--path`, `--scan-dirs`, and `--scan-files` options correctly point to existing files/directories relative to your project root.
+- **`Backend Error (500): ...` or connection issues**: Ensure your AI Editor backend service is running and accessible at the `BACKEND_URL` configured in your `.env` file. Check the backend's logs for more specific error messages.
+- **No changes proposed by LLM**: The prompt might not be clear enough, or the LLM might determine no changes are necessary given the context. Try refining your prompt, providing more specific instructions, or increasing the scanned context with `--scan-dirs` or `--scan-files`. Also, check backend logs for LLM response details.
+- **Files not found during scan**: Verify that the `--path`, `--scan-dirs`, and `--scan-files` options correctly point to existing files/directories relative to your project root. Remember to quote paths containing spaces.
 
 For deeper architectural understanding or to contribute, please refer to the [Developer Guide](developer-guide.md).

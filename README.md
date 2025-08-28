@@ -12,6 +12,7 @@ An AI-powered code editor designed to assist developers with intelligent code ge
 - [Usage](#usage)
   - [Running the Backend and Frontend](#running-the-backend-and-frontend)
   - [CLI Usage Examples](#cli-usage-examples)
+- [CLI Workflow (Mermaid Diagram)](#cli-workflow-mermaid-diagram)
 - [Project Structure](#project-structure)
 - [Technologies Used](#technologies-used)
 - [Contributing](#contributing)
@@ -20,10 +21,10 @@ An AI-powered code editor designed to assist developers with intelligent code ge
 ## Features
 
 - **AI-Powered Code Assistance**: Leverage large language models for code generation, refactoring, and debugging suggestions.
-- **File Operations**: Seamless integration with local file systems for reading and writing code.
-- **Git Integration**: Basic Git operations (e.g., diff generation) to track changes.
+- **File Operations**: Seamless integration with local file systems for reading and writing code (delegated to backend).
+- **Git Integration**: Basic Git operations (e.g., branch creation, diff generation, staging) to track changes locally.
 - **User Interface**: A responsive web interface built with React to interact with the AI editor.
-- **Authentication**: Secure user authentication for accessing the editor functionalities.
+- **Authentication**: Secure user authentication for accessing the editor functionalities via OAuth.
 
 ## Getting Started
 
@@ -36,7 +37,9 @@ Before you begin, ensure you have the following installed:
 - Node.js (LTS version recommended)
 - npm or yarn
 - Git
-- **AI Editor Backend service running and accessible.** The CLI communicates with this service for all AI and file system operations.
+- **AI Editor Backend service running and accessible.**
+  - The CLI communicates with this service for all AI and file system operations.
+  - Visit https://github.com/evillan0315/project-board-server (or similar backend project) for setup instructions.
 
 ### Installation
 
@@ -47,7 +50,7 @@ Before you begin, ensure you have the following installed:
     cd codegen-cli
     ```
 
-2.  **Install dependencies for the backend (root directory):**
+2.  **Install dependencies for the CLI (root directory):**
 
     ```bash
     npm install
@@ -64,13 +67,13 @@ Before you begin, ensure you have the following installed:
 
 ### Configuration
 
-Create a `.env` file in the project root and in `apps/ai-editor-front` based on the `.env.example` (if present) or refer to `docs/google-gemini-setup.md` for AI API key configuration.
+Create a `.env` file in the project root (for the CLI) and in `apps/ai-editor-front` (for the frontend) based on the `.env.example` (if present) or refer to `docs/google-gemini-setup.md` for AI API key configuration (which applies to the backend).
 
-Example `.env` (root):
+Example `.env` (root, for CLI):
 
 ```env
 PORT=3000
-BACKEND_URL=http://localhost:3000 # Important for CLI to connect to the backend
+BACKEND_URL=http://localhost:5000 # Important for CLI to connect to the backend
 # AI_API_KEY=YOUR_GEMINI_API_KEY # This is for the backend service, not the CLI
 # AI_MODEL=gemini-pro
 ```
@@ -78,7 +81,7 @@ BACKEND_URL=http://localhost:3000 # Important for CLI to connect to the backend
 Example `.env` (`apps/ai-editor-front`):
 
 ```env
-VITE_API_BASE_URL=http://localhost:3000/api
+VITE_API_BASE_URL=http://localhost:5000/api
 ```
 
 ## Usage
@@ -86,14 +89,7 @@ VITE_API_BASE_URL=http://localhost:3000/api
 ### Running the Backend and Frontend
 
 1.  **Start the backend server:**
-    From the project root:
-
-    ```bash
-    npm start
-    # or node src/cli.ts start
-    ```
-
-    The backend server will typically run on `http://localhost:3000` (or your configured `PORT`).
+    Follow the instructions for the AI Editor Backend service (e.g., `project-board-server` mentioned in prerequisites). It typically runs on `http://localhost:5000` (or your configured `PORT`).
 
 2.  **Start the frontend development server:**
     From the `apps/ai-editor-front` directory:
@@ -103,7 +99,7 @@ VITE_API_BASE_URL=http://localhost:3000/api
     npm run dev
     ```
 
-    The frontend application will typically open in your browser at `http://localhost:5173` (or Vite's default).
+    The frontend application will typically open in your browser at `http://localhost:3000` (or Vite's default).
 
 3.  **Access the AI Editor:**
     Navigate to the frontend URL in your web browser. You will be able to log in (if authentication is set up) and use the AI editing features.
@@ -116,7 +112,7 @@ For a full guide to all CLI commands and options, refer to the [CLI Usage Guide]
 
 **1. Authenticate with the Backend (Login)**
 
-Before using `generate` or `scan`, you need to log in to the backend service. This command will open a browser for OAuth.
+Before using `generate` or `scan`, you need to log in to the [Project Board Server](https://github.com/evillan0315/project-board-server) backend service. This command will open a browser for OAuth.
 
 ```bash
 aicli login google
@@ -152,7 +148,7 @@ aicli scan --verbose --show-content src/utils.ts
 
 **4. Generate or Modify Code**
 
-Instruct the AI to generate or modify code based on a natural language prompt. This is the core functionality.
+Instruct the AI to generate or modify code based on a natural language prompt via the backend LLM service. This is the core functionality.
 
 ```bash
 # Generate code based on a prompt, scanning the current directory
@@ -179,36 +175,76 @@ Clear your stored authentication token.
 aicli logout
 ```
 
+## CLI Workflow (Mermaid Diagram)
+
+```mermaid
+graph TD
+    A[User runs aicli generate <prompt>] --> B{Is Git repo?}; E[Skip Git]-- Yes --> F{Prompt for Git ops?};
+    B -- No --> E;
+
+    F -- No --> G[Create/Checkout New Git Branch];
+    G --> H[CLI: Prepare LLMInput (prompt, scan paths)];
+
+    H --> I[CLI: Call BackendApi.scanProject()];
+    I -- Sends --> J[Backend: Scans files, reads content];
+    J -- Returns ScannedFiles --> K[CLI: Prepares LLMInput with ScannedFiles];
+
+    K --> L[CLI: Call BackendApi.callLLM(LLMInput)];
+    L -- Sends LLMInput --> M[Backend: Builds LLM prompt, calls Gemini API];
+    M -- Returns LLMOutput (JSON) --> N[CLI: Parses LLMOutput, extracts changes];
+
+    N --> O{Review Proposed Changes?}; P[Auto-confirm (--yes)] --> Q[Apply ALL changes];
+    O -- Yes (Per Change) --> Q;
+    O -- No (Skip Change) --> N;
+    O -- Abort --> R[Revert Git Branch (if created)];
+
+    Q --> S[CLI: For each change, call BackendApi (create/write/delete)];
+    S -- Sends file ops --> T[Backend: Performs actual file system operations];
+    T -- Confirms --> U[CLI: Changes Applied.];
+
+    U --> V{Git Operations Enabled?};
+    V -- Yes --> W[CLI: Stage modified/added files];
+    W --> X[CLI: Display Next Steps (commit, test)];
+    V -- No --> X;
+
+    R --> Z[Exit];
+    X --> Z;
+```
+
 ## Project Structure
 
 ```
 ai-editor/
 ├── apps/
-│   └── ai-editor-front/  # Frontend React application
-│       ├── public/
-│       ├── src/
+│   └── ai-editor-front/  # Frontend React application (separate repository/monorepo package)
+│       ├── public/       # Static assets
+│       ├── src/          # React components, hooks, pages, state management
 │       └── ...
-├── src/                  # Backend Node.js application
-│   ├── auth/
-│   ├── file-operations/
-│   ├── git-operations/
-│   ├── llm/
-│   ├── scanner.ts
-│   ├── cli.ts
-│   └── ...
-├── docs/                 # Documentation
-├── .env                  # Environment variables (backend)
-├── .env.example
-├── package.json
-├── README.md
-└── ...
+├── src/                  # AI Editor CLI Source Code
+│   ├── auth/             # OAuth handling, token storage (authManager.ts)
+│   ├── backend-api/      # Client for interacting with the NestJS backend (backend-api.ts)
+│   ├── file-operations/  # Local diff generation, delegates file changes to backend (diffGenerator.ts, fileApplier.ts)
+│   ├── git-operations/   # Local Git repository management (gitManager.ts)
+│   ├── llm/              # LLM input/output types, JSON repair utility (jsonRepair.ts)
+│   ├── cli.ts            # Main Commander.js CLI application entry point
+│   ├── constants.ts      # Global constants, LLM instructions, expected output format
+│   ├── scanner.ts        # (Deprecated/Unused: Original local file scanner logic, now delegated to backend)
+│   └── types.ts          # Shared TypeScript interfaces and types
+├── docs/                 # Project documentation (CLI usage, developer guide, setup)
+├── .env                  # Environment variables for the CLI (e.g., BACKEND_URL)
+├── .env.example          # Example environment variables
+├── package.json          # Project metadata and dependencies
+├── README.md             # Project overview, setup, and usage
+├── tsconfig.json         # TypeScript configuration
+└── ...                   # Other configuration files (eslint, prettier)
 ```
 
 ## Technologies Used
 
-- **Backend**: Node.js, Express (or similar framework for API)
+- **Backend (External)**: Node.js, NestJS, Google Gemini API, TypeORM, PostgreSQL, Passport.js (for OAuth)
 - **Frontend**: React, TypeScript, Tailwind CSS, Vite
-- **AI**: Google Gemini API
+- **CLI**: Node.js, TypeScript, Commander.js, Inquirer.js, simple-git, axios, dotenv, chalk
+- **AI**: Google Gemini API (via backend)
 - **State Management (Frontend)**: Nanostores (or similar lightweight store)
 - **Version Control**: Git
 
