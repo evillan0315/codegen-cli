@@ -179,35 +179,29 @@ aicli logout
 
 ```mermaid
 graph TD
-    A[User runs aicli generate <prompt>] --> B{Is Git repo?}; E[Skip Git]-- Yes --> F{Prompt for Git ops?};
+    A["User runs aicli generate <prompt>"] --> B{Is Git repo?}; E["Skip Git"]-- Yes --> F{Prompt for Git ops?};
     B -- No --> E;
 
-    F -- No --> G[Create/Checkout New Git Branch];
-    G --> H[CLI: Prepare LLMInput (prompt, scan paths)];
-
-    H --> I[CLI: Call BackendApi.scanProject()];
-    I -- Sends --> J[Backend: Scans files, reads content];
-    J -- Returns ScannedFiles --> K[CLI: Prepares LLMInput with ScannedFiles];
-
-    K --> L[CLI: Call BackendApi.callLLM(LLMInput)];
-    L -- Sends LLMInput --> M[Backend: Builds LLM prompt, calls Gemini API];
-    M -- Returns LLMOutput (JSON) --> N[CLI: Parses LLMOutput, extracts changes];
-
-    N --> O{Review Proposed Changes?}; P[Auto-confirm (--yes)] --> Q[Apply ALL changes];
+    F -- No --> G["Create/Checkout New Git Branch"];
+    G --> H["CLI: Prepare LLMInput (prompt, scan paths)"];
+    H --> I["CLI: Call BackendApi.scanProject()"];
+    I -- Sends --> J["Backend: Scans files, reads content"];
+    J -- Returns ScannedFiles --> K["CLI: Prepares LLMInput with ScannedFiles"];
+    K --> L["CLI: Call BackendApi.callLLM(LLMInput)"];
+    L -- Sends LLMInput --> M["Backend: Builds LLM prompt, calls Gemini API"];
+    M -- Returns LLMOutput (JSON) --> N["CLI: Parses LLMOutput, extracts changes"];
+    N --> O{Review Proposed Changes?}; P["Auto-confirm (--yes)"] --> Q["Apply ALL changes"];
     O -- Yes (Per Change) --> Q;
     O -- No (Skip Change) --> N;
-    O -- Abort --> R[Revert Git Branch (if created)];
-
-    Q --> S[CLI: For each change, call BackendApi (create/write/delete)];
-    S -- Sends file ops --> T[Backend: Performs actual file system operations];
-    T -- Confirms --> U[CLI: Changes Applied.];
-
+    O -- Abort --> R["Revert Git Branch (if created)"];
+    Q --> S["CLI: For each change, call BackendApi (create/write/delete)"];
+    S -- Sends file ops --> T["Backend: Performs actual file system operations"];
+    T -- Confirms --> U["CLI: Changes Applied."];
     U --> V{Git Operations Enabled?};
-    V -- Yes --> W[CLI: Stage modified/added files];
-    W --> X[CLI: Display Next Steps (commit, test)];
+    V -- Yes --> W["CLI: Stage modified/added files"];
+    W --> X["CLI: Display Next Steps (commit, test)"];
     V -- No --> X;
-
-    R --> Z[Exit];
+    R --> Z["Exit"];
     X --> Z;
 ```
 
