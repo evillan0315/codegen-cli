@@ -29,7 +29,7 @@ import { BackendApi } from './backend-api';
 const program = new Command();
 
 program
-  .name('ai-editor')
+  .name('aicli')
   .description('An AI-powered tool for editing and updating code files.')
   .version('0.1.1');
 
@@ -37,7 +37,7 @@ program
 async function getAuthenticatedBackendApi(): Promise<BackendApi> {
   const authToken = await getAuthToken();
   if (!authToken) {
-    console.error('Error: You are not logged in. Please run `ai-editor login <provider>` first.');
+    console.error('Error: You are not logged in. Please run `aicli login <provider>` first.');
     process.exit(1);
   }
   return new BackendApi(authToken);
@@ -172,7 +172,7 @@ program
             );
             if (!autoConfirm) {
               const defaultBranchSuggestion =
-                `ai-feature/${prompt.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`.substring(0, 50);
+                `feature/${prompt.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`.substring(0, 50);
               const { proceedGit } = await inquirer.prompt([
                 {
                   type: 'confirm',
@@ -201,7 +201,7 @@ program
               
               if (!options.noGit && !customBranchName) {
                 options.branch =
-                  `ai-feature/${prompt.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`.substring(0, 50);
+                  `feature/${prompt.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`.substring(0, 50);
                 console.log(`Auto-creating branch: ${options.branch}`);
               }
               if (!options.noGit && options.branch) {
@@ -222,9 +222,13 @@ program
         console.log(`Found ${scannedFiles.length} files.`);
 
         const originalFileContents = new Map<string, string>();
-        scannedFiles.forEach((file) => originalFileContents.set(file.filePath, file.content)); 
+        scannedFiles.forEach((file) =>  { 
+          originalFileContents.set(file.filePath, file.content); 
+          console.log(`\n Scan file: ${file.filePath} ... done.`);
+        }); 
 
         console.log('\n--- Step 2: Preparing LLM context ---');
+        console.log(`Project structure generate: ${projectRoot}`);
         const projectStructure = ''; 
 
         const llmInput: LLMInput = {
@@ -238,8 +242,9 @@ program
         };
 
         console.log('\n--- Step 3: Calling LLM ---');
+        console.log('\n--- Please wait, this may take a while... ---');
         const llmOutput: LLMOutput = await backendApi.callLLM(llmInput);
-
+        
         console.log('\n--- Step 4: LLM Proposed Changes ---');
         console.log(`Summary: ${llmOutput.summary}`);
         if (llmOutput.thoughtProcess) {
